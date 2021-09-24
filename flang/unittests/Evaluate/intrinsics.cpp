@@ -156,6 +156,8 @@ void TestIntrinsics() {
   using Complex8 = Type<TypeCategory::Complex, 8>;
   using Char = Type<TypeCategory::Character, 1>;
   using Log4 = Type<TypeCategory::Logical, 4>;
+  // For testing team arguments (fails to compile)
+  // using Team = Type<TypeCategory::Derived, 0>;
 
   TestCall{defaults, table, "bad"}
       .Push(Const(Scalar<Int4>{}))
@@ -293,6 +295,35 @@ void TestIntrinsics() {
   TestCall{defaults, table, "num_images"}
       .Push(Const(Scalar<Real4>{}))
       .DoCall(); // bad type
+
+  TestCall{defaults, table, "team_number"}.DoCall(Int4::GetType());
+  TestCall{defaults, table, "team_number"}
+      .Push(Const(Scalar<Int4>{}))
+      .Push(Const(Scalar<Int4>{}))
+      .DoCall(); // too many args
+  TestCall{defaults, table, "team_number"}
+      .Push(Named("bad", Const(Scalar<Int4>{})))
+      .DoCall(); // bad keyword
+  TestCall{defaults, table, "team_number"}
+      .Push(Const(Scalar<Int4>{}))
+      .DoCall(); // bad type
+  TestCall{defaults, table, "team_number"}
+      .Push(Const(Scalar<Char>{}))
+      .DoCall(); // bad type
+  TestCall{defaults, table, "team_number"}
+      .Push(Const(Scalar<Log4>{}))
+      .DoCall(); // bad type
+  TestCall{defaults, table, "team_number"}
+      .Push(Const(Scalar<Complex8>{}))
+      .DoCall(); // bad type
+  TestCall{defaults, table, "team_number"}
+      .Push(Const(Scalar<Real4>{}))
+      .DoCall(); // bad type
+
+  // TODO: test TEAM argument
+  //  TestCall{defaults, table, "team_number"}
+  //  .Push(Const(Scalar<Team>{}))
+  //  .DoCall(Int4::GetType());
 
   // TODO: test other intrinsics
 

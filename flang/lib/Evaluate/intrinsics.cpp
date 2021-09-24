@@ -105,7 +105,7 @@ static constexpr TypePattern DefaultChar{CharType, KindCode::defaultCharKind};
 static constexpr TypePattern DefaultLogical{
     LogicalType, KindCode::defaultLogicalKind};
 static constexpr TypePattern BOZ{IntType, KindCode::typeless};
-static constexpr TypePattern TEAM_TYPE{IntType, KindCode::teamType};
+static constexpr TypePattern TEAM_TYPE{DerivedType, KindCode::teamType};
 static constexpr TypePattern DoublePrecision{
     RealType, KindCode::doublePrecision};
 static constexpr TypePattern DoublePrecisionComplex{
@@ -237,6 +237,8 @@ static constexpr IntrinsicDummyArgument MissingDIM{"dim",
     common::Intent::In};
 static constexpr IntrinsicDummyArgument OptionalMASK{"mask", AnyLogical,
     Rank::conformable, Optionality::optional, common::Intent::In};
+static constexpr IntrinsicDummyArgument RequiredTEAM{
+    "team", TEAM_TYPE, Rank::scalar, Optionality::required, common::Intent::In};
 
 struct IntrinsicInterface {
   static constexpr int maxArguments{7}; // if not a MAX/MIN(...)
@@ -746,6 +748,10 @@ static const IntrinsicInterface genericIntrinsicFunction[]{
     {"tan", {{"x", SameFloating}}, SameFloating},
     {"tand", {{"x", SameFloating}}, SameFloating},
     {"tanh", {{"x", SameFloating}}, SameFloating},
+    {"team_number", {}, DefaultInt, Rank::scalar,
+        IntrinsicClass::transformationalFunction},
+    {"team_number", {RequiredTEAM}, DefaultInt, Rank::scalar,
+        IntrinsicClass::transformationalFunction},
     // optional team dummy arguments needed to complete the following
     // this_image versions
     {"this_image", {{"coarray", AnyData, Rank::coarray}, OptionalDIM},
@@ -825,7 +831,7 @@ static const IntrinsicInterface genericIntrinsicFunction[]{
 
 // TODO: Coarray intrinsic functions
 //   LCOBOUND, UCOBOUND, FAILED_IMAGES, GET_TEAM, IMAGE_INDEX,
-//   STOPPED_IMAGES, TEAM_NUMBER, COSHAPE
+//   STOPPED_IMAGES, COSHAPE
 // TODO: Non-standard intrinsic functions
 //  AND, OR, XOR, LSHIFT, RSHIFT, SHIFT, ZEXT, IZEXT,
 //  COMPL, EQV, NEQV, INT8, JINT, JNINT, KNINT,
@@ -1293,8 +1299,10 @@ std::optional<SpecificCall> IntrinsicInterface::Match(
     switch (d.typePattern.kindCode) {
     case KindCode::none:
     case KindCode::typeless:
-    case KindCode::teamType: // TODO: TEAM_TYPE
       argOk = false;
+      break;
+    case KindCode::teamType:
+      argOk = semantics::IsTeamType(GetDerivedTypeSpec(type));
       break;
     case KindCode::defaultIntegerKind:
       argOk = type->kind() == defaults.GetDefaultKind(TypeCategory::Integer);
@@ -1726,6 +1734,10 @@ std::optional<SpecificCall> IntrinsicInterface::Match(
       CHECK(d.optionality != Optionality::required);
       if (d.typePattern.kindCode == KindCode::same) {
         dummyArgs.emplace_back(dummyArgs[sameDummyArg.value()]);
+      } else if (d.typePattern.kindCode == KindCode::teamType) {
+        common::die("INTERNAL: missing optional TEAM_TYPE dummy argument is "
+                    "unimplemented");
+        return std::nullopt;
       } else {
         auto category{d.typePattern.categorySet.LeastElement().value()};
         characteristics::TypeAndShape typeAndShape{
