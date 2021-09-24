@@ -26,6 +26,7 @@
 #include "flang/Optimizer/Builder/FIRBuilder.h"
 #include "flang/Optimizer/Builder/MutableBox.h"
 #include "flang/Optimizer/Builder/Runtime/Character.h"
+#include "flang/Optimizer/Builder/Runtime/Coarray.h"
 #include "flang/Optimizer/Builder/Runtime/Numeric.h"
 #include "flang/Optimizer/Builder/Runtime/RTBuilder.h"
 #include "flang/Optimizer/Builder/Runtime/Reduction.h"
@@ -489,6 +490,8 @@ struct IntrinsicLibrary {
   mlir::Value genNint(mlir::Type, llvm::ArrayRef<mlir::Value>);
   mlir::Value genNot(mlir::Type, llvm::ArrayRef<mlir::Value>);
   fir::ExtendedValue genNull(mlir::Type, llvm::ArrayRef<fir::ExtendedValue>);
+  fir::ExtendedValue genNumImages(mlir::Type,
+                                  llvm::ArrayRef<fir::ExtendedValue>);
   fir::ExtendedValue genPack(mlir::Type, llvm::ArrayRef<fir::ExtendedValue>);
   fir::ExtendedValue genPresent(mlir::Type, llvm::ArrayRef<fir::ExtendedValue>);
   fir::ExtendedValue genProduct(mlir::Type, llvm::ArrayRef<fir::ExtendedValue>);
@@ -758,6 +761,10 @@ static constexpr IntrinsicHandler handlers[]{
     {"nint", &I::genNint},
     {"not", &I::genNot},
     {"null", &I::genNull, {{{"mold", asInquired}}}, /*isElemental=*/false},
+    {"num_images",
+     &I::genNumImages,
+     {{{"team_number", asValue}}},
+     /*isElemental=*/false},
     {"pack",
      &I::genPack,
      {{{"array", asAddr}, {"mask", asAddr}, {"vector", asAddr}}},
@@ -2697,6 +2704,22 @@ IntrinsicLibrary::genNull(mlir::Type, llvm::ArrayRef<fir::ExtendedValue> args) {
                                                 mold->nonDeferredLenParams());
   builder.create<fir::StoreOp>(loc, box, boxStorage);
   return fir::MutableBoxValue(boxStorage, mold->nonDeferredLenParams(), {});
+}
+
+fir::ExtendedValue
+IntrinsicLibrary::genNumImages(mlir::Type resultType,
+                               llvm::ArrayRef<fir::ExtendedValue> args) {
+  // Initial implementation with team_number argument
+  // TODO: Add support for team type optional argument
+  assert(args.size() <= 1);
+
+  // Handle optional team number argument
+  auto teamNumber =
+      args.size() == 0
+          ? builder.createIntegerConstant(loc, builder.getIndexType(), 0)
+          : fir::getBase(args[0]);
+  return builder.createConvert(
+      loc, resultType, fir::runtime::genNumImages(builder, loc, teamNumber));
 }
 
 // PACK
